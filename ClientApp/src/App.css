@@ -1,0 +1,12 @@
+.app-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.book-list .table code {
+  background-color: var(--bs-secondary-bg);
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+}
