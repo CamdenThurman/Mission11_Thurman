@@ -14,6 +14,7 @@ public class BooksController(BookstoreDbContext db) : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 5,
         [FromQuery] string sortTitle = "asc",
+        [FromQuery] string? category = null,
         CancellationToken cancellationToken = default)
     {
         if (page < 1) page = 1;
@@ -21,6 +22,11 @@ public class BooksController(BookstoreDbContext db) : ControllerBase
         if (pageSize > 100) pageSize = 100;
 
         var query = db.Books.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            query = query.Where(b => b.Category == category);
+        }
+
         query = string.Equals(sortTitle, "desc", StringComparison.OrdinalIgnoreCase)
             ? query.OrderByDescending(b => b.Title)
             : query.OrderBy(b => b.Title);
@@ -32,6 +38,20 @@ public class BooksController(BookstoreDbContext db) : ControllerBase
             .ToListAsync(cancellationToken);
 
         return Ok(new PagedBooksResponse(items, totalCount, page, pageSize));
+    }
+
+    [HttpGet("categories")]
+    public async Task<ActionResult<IReadOnlyList<string>>> GetCategories(
+        CancellationToken cancellationToken = default)
+    {
+        var categories = await db.Books
+            .AsNoTracking()
+            .Select(b => b.Category)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToListAsync(cancellationToken);
+
+        return Ok(categories);
     }
 }
 
