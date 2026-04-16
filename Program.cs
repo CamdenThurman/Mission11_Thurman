@@ -51,10 +51,8 @@ app.UseCors();
 
 app.UseAuthorization();
 
-app.MapStaticAssets();
 app.MapControllers();
-app.MapRazorPages()
-    .WithStaticAssets();
+app.MapRazorPages();
 
 if (hasSpaDist)
 {
