@@ -53,6 +53,92 @@ public class BooksController(BookstoreDbContext db) : ControllerBase
 
         return Ok(categories);
     }
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Book>> GetBook(int id, CancellationToken cancellationToken = default)
+    {
+        var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(b => b.BookID == id, cancellationToken);
+        if (book is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(book);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<Book>> CreateBook(
+        [FromBody] BookInputDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var book = new Book
+        {
+            Title = dto.Title.Trim(),
+            Author = dto.Author.Trim(),
+            Publisher = dto.Publisher.Trim(),
+            ISBN = dto.ISBN.Trim(),
+            Classification = dto.Classification.Trim(),
+            Category = dto.Category.Trim(),
+            PageCount = dto.PageCount,
+            Price = dto.Price,
+        };
+
+        db.Books.Add(book);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return CreatedAtAction(nameof(GetBook), new { id = book.BookID }, book);
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> UpdateBook(
+        int id,
+        [FromBody] BookInputDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var book = await db.Books.FirstOrDefaultAsync(b => b.BookID == id, cancellationToken);
+        if (book is null)
+        {
+            return NotFound();
+        }
+
+        book.Title = dto.Title.Trim();
+        book.Author = dto.Author.Trim();
+        book.Publisher = dto.Publisher.Trim();
+        book.ISBN = dto.ISBN.Trim();
+        book.Classification = dto.Classification.Trim();
+        book.Category = dto.Category.Trim();
+        book.PageCount = dto.PageCount;
+        book.Price = dto.Price;
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteBook(int id, CancellationToken cancellationToken = default)
+    {
+        var book = await db.Books.FirstOrDefaultAsync(b => b.BookID == id, cancellationToken);
+        if (book is null)
+        {
+            return NotFound();
+        }
+
+        db.Books.Remove(book);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
 }
 
 public record PagedBooksResponse(

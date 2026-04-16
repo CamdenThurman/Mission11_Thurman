@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BookFormModal } from './BookFormModal'
+import type { Book } from '../types/book'
 
-export interface Book {
-  bookID: number
-  title: string
-  author: string
-  publisher: string
-  isbn: string
-  classification: string
-  category: string
-  pageCount: number
-  price: number
+export type { Book }
+
+interface BookListProps {
+  adminMode?: boolean
 }
 
 interface PagedBooksResponse {
@@ -36,7 +32,7 @@ const BROWSE_KEY = 'bookstore-browse-state'
 const LAST_ADDED_KEY = 'bookstore-last-added-state'
 const PAGE_SIZE_OPTIONS = [5, 10, 15, 20] as const
 
-export function BookList() {
+export function BookList({ adminMode = false }: BookListProps) {
   const [page, setPage] = useState(() => {
     const raw = sessionStorage.getItem(BROWSE_KEY)
     if (!raw) return 1
@@ -119,23 +115,26 @@ export function BookList() {
     void load()
   }, [load])
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      setCategoriesLoading(true)
-      try {
-        const res = await fetch('/api/books/categories')
-        if (!res.ok) return
-        const json: string[] = await res.json()
-        setCategories(json)
-      } catch {
-        setCategories([])
-      } finally {
-        setCategoriesLoading(false)
-      }
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true)
+    try {
+      const res = await fetch('/api/books/categories')
+      if (!res.ok) return
+      const json: string[] = await res.json()
+      setCategories(json)
+    } catch {
+      setCategories([])
+    } finally {
+      setCategoriesLoading(false)
     }
-
-    void loadCategories()
   }, [])
+
+  useEffect(() => {
+    void loadCategories()
+  }, [loadCategories])
+
+  const [bookModalOpen, setBookModalOpen] = useState(false)
+  const [editingBook, setEditingBook] = useState<Book | null>(null)
 
   useEffect(() => {
     const state: BrowseState = { page, pageSize, sortTitle, category }
@@ -169,6 +168,44 @@ export function BookList() {
   const handleCategoryChange = (next: string) => {
     setCategory(next)
     setPage(1)
+  }
+
+  const openAddBook = () => {
+    setEditingBook(null)
+    setBookModalOpen(true)
+  }
+
+  const openEditBook = (b: Book) => {
+    setEditingBook(b)
+    setBookModalOpen(true)
+  }
+
+  const closeBookModal = () => {
+    setBookModalOpen(false)
+    setEditingBook(null)
+  }
+
+  const handleBookSaved = () => {
+    void load()
+    void loadCategories()
+    setToastMessage(editingBook ? 'Book updated' : 'Book added')
+  }
+
+  const deleteBook = async (b: Book) => {
+    if (!window.confirm(`Delete "${b.title}"? This cannot be undone.`)) return
+    try {
+      const res = await fetch(`/api/books/${b.bookID}`, { method: 'DELETE' })
+      if (!res.ok) {
+        setToastMessage(`Delete failed (${res.status})`)
+        return
+      }
+      setCart((prev) => prev.filter((x) => x.book.bookID !== b.bookID))
+      setToastMessage(`Deleted "${b.title}"`)
+      await load()
+      await loadCategories()
+    } catch {
+      setToastMessage('Delete failed')
+    }
   }
 
   const addToCart = (book: Book) => {
@@ -295,13 +332,20 @@ export function BookList() {
                 </div>
               </div>
 
-              {data != null && (
-                <p className="text-muted small mb-3">
-                  Showing {(data.page - 1) * data.pageSize + 1}-
-                  {Math.min(data.page * data.pageSize, data.totalCount)} of {data.totalCount} books
-                  {category ? ` in ${category}` : ''}
-                </p>
-              )}
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                {data != null && (
+                  <p className="text-muted small mb-0">
+                    Showing {(data.page - 1) * data.pageSize + 1}-
+                    {Math.min(data.page * data.pageSize, data.totalCount)} of {data.totalCount} books
+                    {category ? ` in ${category}` : ''}
+                  </p>
+                )}
+                {adminMode && (
+                  <button type="button" className="btn btn-success btn-sm" onClick={openAddBook}>
+                    Add book
+                  </button>
+                )}
+              </div>
 
               {loading && <p className="text-muted mb-0">Loading books...</p>}
               {error && <div className="alert alert-danger mb-0">{error}</div>}
@@ -323,12 +367,17 @@ export function BookList() {
                           <th scope="col" className="text-end">
                             Cart
                           </th>
+                          {adminMode && (
+                            <th scope="col" className="text-end">
+                              Manage
+                            </th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
                         {data.items.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="text-center text-muted py-4">
+                            <td colSpan={adminMode ? 8 : 7} className="text-center text-muted py-4">
                               No books found.
                             </td>
                           </tr>
@@ -355,6 +404,24 @@ export function BookList() {
                                   Add
                                 </button>
                               </td>
+                              {adminMode && (
+                                <td className="text-end text-nowrap">
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary me-1"
+                                    onClick={() => openEditBook(b)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => void deleteBook(b)}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           ))
                         )}
@@ -469,6 +536,15 @@ export function BookList() {
           </div>
         </div>
       </div>
+
+      {adminMode && (
+        <BookFormModal
+          show={bookModalOpen}
+          book={editingBook}
+          onHide={closeBookModal}
+          onSaved={handleBookSaved}
+        />
+      )}
 
       <div className="toast-container position-fixed top-0 end-0 p-3">
         <div
