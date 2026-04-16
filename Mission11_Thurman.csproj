@@ -20,15 +20,9 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Update="ClientApp\dist\**\*">
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-  </ItemGroup>
-
-  <Target Name="BuildClientApp" BeforeTargets="Publish">
+  <Target Name="BuildClientApp" BeforeTargets="ComputeFilesToPublish">
     <Exec WorkingDirectory="ClientApp" Command="npm install" />
-    <Exec WorkingDirectory="ClientApp" Command="npm run build" />
+    <Exec WorkingDirectory="ClientApp" Command="npm run build -- --outDir ../wwwroot" />
   </Target>
 
 </Project>
